@@ -39,31 +39,15 @@ $t = new trader();
 
         default:
             echo "Usage info\n---------------\n";
-            echo "php $myname buy <amount in eur> <sell when price increases by eur>\n";
-            echo "php $myname sell <amount in eur>\n";
-            echo "php $myname order <amount in eur> <sell when price increases by eur> <buy at btc price>\n";
+            echo "php $myname buy <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY.">\n";
+            echo "php $myname sell <amount in ".CURRENCY.">\n";
+            echo "php $myname order <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY."> <buy at btc price>\n";
             echo "\nExamples:\n---------------\n";
-            echo "Buy 10 EUR in BTC and sell when it will be worth 12 EUR:\n  php $myname buy 10 2\n";
-            echo "Sell 5 EUR of your BTC:\n  php $myname sell 5\n";
-            echo "Add buy order for 15 EUR when 1 BTC is worth 1000 EUR and sell when the 15 EUR are worth 17 EUR:\n  php $myname order 15 2 1000\n";
+            echo "Buy 10 ".CURRENCY." in BTC and sell when it will be worth 12 ".CURRENCY.":\n  php $myname buy 10 2\n";
+            echo "Sell 5 ".CURRENCY." of your BTC:\n  php $myname sell 5\n";
+            echo "Add buy order for 15 ".CURRENCY." when 1 BTC is worth 1000 ".CURRENCY." and sell when the 15 ".CURRENCY." are worth 17 ".CURRENCY.":\n  php $myname order 15 2 1000\n";
         break;
     }
-    
-/*
-$t->buyBTC(1,1);
-$t->buyBTC(1,2);
-$t->buyBTC(1,3);
-$t->buyBTC(1,2.2);
-$t->buyBTC(10,15);
-*/
-//$t->sellBTCID($id);
-
-
-//$t->buyBTC(1,true);
-//$t->sellBTC(1,true);
-
-//$t->buyBTC($t->buyPrice);
-//$t->sellBTC($t->sellPrice);
 
 class trader
 {
@@ -92,16 +76,18 @@ class trader
 
         $paymentMethods = $this->client->getPaymentMethods();
 
-        //find EUR wallet ID
+        //find ".CURRENCY." wallet ID
         foreach($paymentMethods as $pm)
         {
-            if($pm->getName() == 'EUR Wallet')
+            if($pm->getName() == CURRENCY.' Wallet')
             {
                 $this->walletID = $pm->getId();
-                echo "[i] Found EUR Wallet ID: $this->walletID\n";
+                echo "[i] Found ".CURRENCY." Wallet ID: $this->walletID\n";
                 break;
             }
         }
+        if(!$this->walletID)
+            exit("[ERR] Could not find your ".CURRENCY." Wallet. Do you have one on Coinbase?\n");
 
         $this->updatePrices();
     }
@@ -109,9 +95,9 @@ class trader
     function updatePrices()
     {
         $this->lastSellPrice = $this->sellPrice;
-        $this->buyPrice =  floatval($this->client->getBuyPrice('BTC-EUR')->getAmount());
-        $this->sellPrice = floatval($this->client->getSellPrice('BTC-EUR')->getAmount());
-        $this->spotPrice = floatval($this->client->getSpotPrice('BTC-EUR')->getAmount());
+        $this->buyPrice =  floatval($this->client->getBuyPrice('BTC-'.CURRENCY)->getAmount());
+        $this->sellPrice = floatval($this->client->getSellPrice('BTC-'.CURRENCY)->getAmount());
+        $this->spotPrice = floatval($this->client->getSpotPrice('BTC-'.CURRENCY)->getAmount());
 
         if(!$this->lastSellPrice) $this->lastSellPrice = $this->sellPrice;
 
@@ -127,11 +113,11 @@ class trader
 
     function addBuyTransaction($eur,$buyat,$sellat)
     {
-        echo "[i] Buying $eur € when price is <= $buyat EUR\n";
+        echo "[i] Buying $eur € when price is <= $buyat ".CURRENCY."\n";
         $id = @max(array_keys($this->transactions))+1;
         $this->transactions[$id] = array('eur'=>$eur,'buyprice'=>$buyat,'sellat'=>$sellat);
         $this->saveTransactions();
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Will buy *$eur EUR* when BTC price hits *$buyat EUR*. Currently it's at: *$this->sellPrice EUR*. Only *".($this->sellPrice-$buyat).' EUR* to go',':raised_hands:');
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Will buy *$eur ".CURRENCY."* when BTC price hits *$buyat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($this->sellPrice-$buyat).' ".CURRENCY."* to go',':raised_hands:');
     }
 
     function buyBTC($amount,$sellat,$btc=false)
@@ -154,7 +140,7 @@ class trader
         if(DEV===true)
             echo "[B #$id] Buying $eur €\t=\t$btc BTC\n";
 
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Buying *$btc BTC* for *$eur EUR*",':moneybag:','Bot #'.$this->traderID);
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Buying *$btc BTC* for *$eur ".CURRENCY."*",':moneybag:','Bot #'.$this->traderID);
 
         $this->saveTransactions();
 
@@ -171,7 +157,7 @@ class trader
 
         $profit = round(($data['btc']*$this->sellPrice)-($data['btc']*$data['buyprice']),2);
 
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$data['btc']." BTC* for *".$data['eur']." EUR*. Profit: *$profit EUR*",':money_with_wings:','Bot #'.$this->traderID);
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$data['btc']." BTC* for *".$data['eur']." ".CURRENCY."*. Profit: *$profit ".CURRENCY."*",':money_with_wings:','Bot #'.$this->traderID);
 
         $this->saveTransactions();
     }
@@ -205,9 +191,9 @@ class trader
 
             if($this->lastSellPrice!=$this->sellPrice && round(abs($this->sellPrice-$this->lastSellPrice),2) > 0)
             {
-                echo "[BTC] Price went ".($this->sellPrice>$this->lastSellPrice?'up':'down')." by ".round($this->sellPrice-$this->lastSellPrice,2)." EUR\n";
+                echo "[BTC] Price went ".($this->sellPrice>$this->lastSellPrice?'up':'down')." by ".round($this->sellPrice-$this->lastSellPrice,2)." ".CURRENCY."\n";
                 //if(ROCKETCHAT_REPORTING===true)
-                //    sendToRocketchat("Sell price changed by *".round(($this->sellPrice-$this->lastSellPrice),2)." EUR* Was: $this->lastSellPrice, is now: $this->sellPrice",':information_source:');
+                //    sendToRocketchat("Sell price changed by *".round(($this->sellPrice-$this->lastSellPrice),2)." ".CURRENCY."* Was: $this->lastSellPrice, is now: $this->sellPrice",':information_source:');
             }
                 
 
@@ -234,12 +220,12 @@ class trader
                 else
                 {
                     $untilsell = round(($this->sellPrice-$sellat)*$btc,2);
-                    $message = " [#$id] Holding \t$eur EUR at buy. Now worth:\t ".round($newprice,2)." EUR. Change: ".($diff)." EUR. Will sell at \t$sellat EUR (+$untilsell) EUR\n";
+                    $message = " [#$id] Holding \t$eur ".CURRENCY." at buy. Now worth:\t ".round($newprice,2)." ".CURRENCY.". Change: ".($diff)." ".CURRENCY.". Will sell at \t$sellat ".CURRENCY." (+$untilsell) ".CURRENCY."\n";
                     echo $message;
 
                     if( ($this->sellPrice*$btc) >= $sellat )
                     {
-                        echo "  [#$id] AWWYEAH time to sell $btc BTC since it hit ".($this->sellPrice*$btc)." EUR. Bought at $eur EUR\n";
+                        echo "  [#$id] AWWYEAH time to sell $btc BTC since it hit ".($this->sellPrice*$btc)." ".CURRENCY.". Bought at $eur ".CURRENCY."\n";
                         $this->sellBTCID($id);
                     }
                         

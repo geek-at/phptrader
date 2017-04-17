@@ -1,5 +1,6 @@
 <?php
 
+define('CURRENCY','EUR'); //EUR or USD
 define('DEV',true);
 define('SIMULATE',true);
 define('ROCKETCHAT_REPORTING',true);
