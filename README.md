@@ -11,8 +11,9 @@ Tutorial on https://blog.haschek.at/post/feb62
 - (Optional) A Rocket.Chat webhook which will inform you whenever BTCs are sold or bought
 
 ## Install
-1. Download the repo by using ```git clone XXX``` or download as [ZIP file]()
+1. Download the repo by using ```git clone https://github.com/chrisiaut/phptrader.git``` or download as [ZIP file](https://github.com/chrisiaut/phptrader/archive/master.zip)
 2. Inside the Traderbot directory let composer install the dependencies: ```composer install```
+3. Rename example.config.inc.php to config.inc.php and fill in your data
 
 ## Usage
 
