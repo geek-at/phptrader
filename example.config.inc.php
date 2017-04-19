@@ -1,9 +1,21 @@
 <?php
 
-define('CURRENCY','EUR'); //EUR or USD
+define('CURRENCY','EUR'); //EUR or USD or ETH or what ever wallet/currency you want to pay with for your bitcoins
 define('DEV',true); //enables the program output
 define('SIMULATE',false); //if false, transactions are really paid, else it's just a simulation
+
+// chat system output (rocket.chat and Slack supported)
 define('ROCKETCHAT_REPORTING',true); //enables/disables rocketchat reporting
 define('ROCKETCHAT_WEBHOOK',''); // The URL of the webhook. Also works with a Slack webhook!
+
+// Coinbase
 define('COINBASE_KEY','');
 define('COINBASE_SECRET','');
+
+// REDIS for storing your data (bitcoin prices, orders, etc)
+// if REDIS_SERVER is not set, will use a local JSON file
+// if the JSON file is present AND REDIS_SERVER is set, will convert to redis and delete JSON
+define('REDIS_SERVER', '');
+define('REDIS_PORT', 6379);
+define('REDIS_PASS','');
+define('REDIS_DB',0);
