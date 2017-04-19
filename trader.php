@@ -1,9 +1,11 @@
 <?php 
+define('DS', DIRECTORY_SEPARATOR);
+define('ROOT', dirname(__FILE__));
 
-if(!file_exists('config.inc.php'))
+if(!file_exists(ROOT.DS.'config.inc.php'))
     exit('Error! set up config.inc.php first');
-include_once('config.inc.php');
-include_once('vendor/autoload.php');
+include_once(ROOT.DS.'config.inc.php');
+include_once(ROOT.DS.'vendor/autoload.php');
 use Coinbase\Wallet\Client;
 use Coinbase\Wallet\Configuration;
 use Coinbase\Wallet\Resource\Sell;
@@ -62,6 +64,8 @@ class trader
     private $transactions;
     private $traderID;
 
+    private $redis;
+
 
     function __construct()
     {
@@ -71,12 +75,26 @@ class trader
         $this->transactions = array();
         $this->traderID = substr(md5(time().microtime()."hello".rand(1,19999)),-3);
 
-        if(file_exists('transactions.json'))
-            $this->transactions = json_decode(file_get_contents('transactions.json'), true);
+        //setup Redis connection if user has configured it
+        if(defined('REDIS_SERVER') && REDIS_SERVER != '')
+        {
+            $this->redis = new Predis\Client(array(
+                'scheme'   => 'tcp',
+                'host'     => REDIS_SERVER,
+                'port'     => REDIS_PORT,
+                'database' => REDIS_DB,
+                'password' => REDIS_PASS
+            ));
+
+            //var_dump($this->redis->get('1234:quota'));
+        }
+
+        //load previous data
+        $this->loadTransactions();
 
         $paymentMethods = $this->client->getPaymentMethods();
 
-        //find ".CURRENCY." wallet ID
+        //find wallet ID
         foreach($paymentMethods as $pm)
         {
             if($pm->getName() == CURRENCY.' Wallet')
@@ -90,6 +108,82 @@ class trader
             exit("[ERR] Could not find your ".CURRENCY." Wallet. Do you have one on Coinbase?\n");
 
         $this->updatePrices();
+    }
+
+    function loadTransactions()
+    {
+        if(defined('REDIS_SERVER') && REDIS_SERVER != '')
+        {
+            if(file_exists(ROOT.DS.'transactions.json')) //migrate to redis
+            {
+                if(DEV===true) echo "[C] Found transactions.json and Redis is configured. Converting json to Redis.. ";
+                $transactions = json_decode(file_get_contents(ROOT.DS.'transactions.json'), true);
+                foreach($transactions as $key=>$transaction)
+                {
+                    $this->redis->set('phptrader:'.$key.':btc',$transaction['btc']);
+                    $this->redis->set('phptrader:'.$key.':eur',$transaction['eur']);
+                    $this->redis->set('phptrader:'.$key.':buyprice',$transaction['buyprice']);
+                    $this->redis->set('phptrader:'.$key.':sellat',$transaction['sellat']);
+                }
+                unlink(ROOT.DS.'transactions.json');
+                if(DEV===true) echo "done\n";
+            }
+
+            if(DEV===true) echo "[i] Loading data from Redis.. ";
+            $data = $this->redis->keys('phptrader:*');
+            if(is_array($data))
+                foreach($data as $d)
+                {
+                    $a = explode(':',$d);
+                    $key = $a[1];
+                    $var = $a[2];
+                    $val = $this->redis->get("phptrader:$key:$var");
+                    $this->transactions[$key][$var] = $val;
+                }
+            
+            if(DEV===true) echo "done! Found ".count($this->transactions)." data points.\n";
+        }
+        else if(file_exists(ROOT.DS.'transactions.json'))
+            $this->transactions = json_decode(file_get_contents(ROOT.DS.'transactions.json'), true);
+
+    }
+
+    function deleteTransaction($id)
+    {
+        if(DEV===true) echo "[i] Deleting transaction ID $id\n";
+
+        if(defined('REDIS_SERVER') && REDIS_SERVER != '')
+        {
+            if(!$this->redis->exists("phptrader:$id:buyprice") && DEV===true)
+                echo " [!ERR!] Key $id does not exist in Redis!\n";
+            else
+            {
+                $keys = $this->redis->keys("phptrader:$id:*");
+                foreach ($keys as $key) {
+                    $this->redis->del($key);
+                }
+            }
+        }
+        else
+            unset($this->transactions[$id]);
+
+        $this->saveTransactions();
+    }
+
+    function saveTransactions()
+    {
+        if(defined('REDIS_SERVER') && REDIS_SERVER != '')
+        {
+            foreach($this->transactions as $key=>$transaction)
+                {
+                    $this->redis->set('phptrader:'.$key.':btc',$transaction['btc']);
+                    $this->redis->set('phptrader:'.$key.':eur',$transaction['eur']);
+                    $this->redis->set('phptrader:'.$key.':buyprice',$transaction['buyprice']);
+                    $this->redis->set('phptrader:'.$key.':sellat',$transaction['sellat']);
+                }
+        }
+        else
+            file_put_contents(ROOT.DS."transactions.json",json_encode($this->transactions));
     }
 
     function updatePrices()
@@ -113,6 +207,7 @@ class trader
 
     function addBuyTransaction($eur,$buyat,$sellat)
     {
+        $this->loadTransactions();
         echo "[i] Buying $eur € when price is <= $buyat ".CURRENCY."\n";
         $id = @max(array_keys($this->transactions))+1;
         $this->transactions[$id] = array('eur'=>$eur,'buyprice'=>$buyat,'sellat'=>$sellat);
@@ -134,6 +229,7 @@ class trader
             
             $this->client->createAccountBuy($this->account, $buy);
         }
+        $this->loadTransactions();
         $id = @max(array_keys($this->transactions))+1;
         $this->transactions[$id] = array('btc'=>$btc,'eur'=>$eur,'buyprice'=>$this->buyPrice,'sellat'=>$sellat);
 
@@ -150,7 +246,7 @@ class trader
     function sellBTCID($id)
     {
         $data = $this->transactions[$id];
-        unset($this->transactions[$id]);
+        $this->deleteTransaction($id);
         if(DEV===true)
              echo "[S #$id] Removed transaction #$id from list\n";
         $this->sellBTC($data['btc'],true);
@@ -158,8 +254,6 @@ class trader
         $profit = round(($data['btc']*$this->sellPrice)-($data['btc']*$data['buyprice']),2);
 
         if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$data['btc']." BTC* for *".$data['eur']." ".CURRENCY."*. Profit: *$profit ".CURRENCY."*",':money_with_wings:','Bot #'.$this->traderID);
-
-        $this->saveTransactions();
     }
 
     function sellBTC($amount,$btc=false)
@@ -212,7 +306,7 @@ class trader
                 {
                     if($this->buyPrice <= $buyprice) //time to buy?
                     {
-                        unset($this->transactions[$id]);
+                        deleteTransaction($id);
                         $this->buyBTC($eur, ($sellat-$eur) );
                     }
                         
@@ -228,23 +322,14 @@ class trader
                         echo "  [#$id] AWWYEAH time to sell $btc BTC since it hit ".($this->sellPrice*$btc)." ".CURRENCY.". Bought at $eur ".CURRENCY."\n";
                         $this->sellBTCID($id);
                     }
-                        
                 }
 
-                
-
-                
             }
             
 
-            sleep(10);
+            sleep((defined('SLEEPTIME')?SLEEPTIME:10));
             echo "------\n";
         }
-    }
-
-    function saveTransactions()
-    {
-        file_put_contents("transactions.json",json_encode($this->transactions));
     }
 
 }

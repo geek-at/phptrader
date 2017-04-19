@@ -1,5 +1,6 @@
 {
     "require": {
-        "coinbase/coinbase": "^2.5"
+        "coinbase/coinbase": "^2.5",
+        "predis/predis": "^1.1"
     }
 }

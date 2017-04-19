@@ -18,6 +18,7 @@
 ## Upgrading
 1. Re-download or pull repo
 2. check example.config.inc.php for new settings and add them to your config.inc.php
+3. re-run ```composer install``` in the root directory to install new libraries
 
 ## Usage
 

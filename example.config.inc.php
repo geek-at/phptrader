@@ -4,6 +4,9 @@ define('CURRENCY','EUR'); //EUR or USD or ETH or what ever wallet/currency you w
 define('DEV',true); //enables the program output
 define('SIMULATE',false); //if false, transactions are really paid, else it's just a simulation
 
+//how long between price checks in the watchdog?
+define('SLEEPTIME',10);
+
 // chat system output (rocket.chat and Slack supported)
 define('ROCKETCHAT_REPORTING',true); //enables/disables rocketchat reporting
 define('ROCKETCHAT_WEBHOOK',''); // The URL of the webhook. Also works with a Slack webhook!
