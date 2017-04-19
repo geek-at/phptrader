@@ -1,6 +1,15 @@
 <?php
 
-define('CURRENCY','EUR'); //EUR or USD or ETH or what ever wallet/currency you want to pay with for your bitcoins
+// The currency you're going to pay with when buying new coins
+// This can also be a crypto currency you have on Coinbase
+// EUR or USD or even ETH or BTC
+define('CURRENCY','EUR');
+
+// The crypto currency the bot is going to trade.
+// BTC or ETH only the moment
+define('CRYPTO','BTC');
+
+// Script settings
 define('DEV',true); //enables the program output
 define('SIMULATE',false); //if false, transactions are really paid, else it's just a simulation
 
