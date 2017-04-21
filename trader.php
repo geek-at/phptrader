@@ -2,6 +2,11 @@
 define('DS', DIRECTORY_SEPARATOR);
 define('ROOT', dirname(__FILE__));
 
+//check if this is really run by CLI, not a webserver
+if(php_sapi_name() !== 'cli')
+    exit('This script is meant to be run from the command line!<br/>It can\'t be used on a webserver.<br/><br/>
+    For more information go to the <a href="https://github.com/chrisiaut/phptrader">official github repo</a>');
+
 if(!file_exists(ROOT.DS.'config.inc.php'))
     exit('Error! set up config.inc.php first');
 include_once(ROOT.DS.'config.inc.php');
@@ -28,7 +33,8 @@ $t = new trader();
         
         case 'sell':
             $amount = $argv[2];
-            $t->sellBTC($amount,true);
+            $cyproprice = $argv[3];
+            $t->addSellTransaction($amount,$cyproprice);
         break;
         
         
@@ -47,11 +53,11 @@ $t = new trader();
         default:
             echo "Usage info\n---------------\n";
             echo "php $myname buy <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY.">\n";
-            //echo "php $myname sell <amount in ".CRYPTO.">\n";
+            echo "php $myname sell <amount in ".CURRENCY."> <sell when this ".CRYPTO." price is reached >\n";
             echo "php $myname order <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY."> <buy at ".CRYPTO." price>\n";
             echo "\nExamples:\n---------------\n";
             echo "Buy 10 ".CURRENCY." in ".CRYPTO." and sell when it will be worth 12 ".CURRENCY.":\n  php $myname buy 10 2\n";
-            //echo "Sell 5 ".CURRENCY." of your ".CRYPTO.":\n  php $myname sell 5\n";
+            echo "Sell 100 ".CURRENCY." of your ".CRYPTO." when 1 ".CRYPTO." is worth 2000 ".CURRENCY.":\n  php $myname sell 100 2000\n";
             echo "Add buy order for 15 ".CURRENCY." when 1 ".CRYPTO." is worth 1000 ".CURRENCY." and sell when the 15 ".CURRENCY." are worth 17 ".CURRENCY.":\n  php $myname order 15 2 1000\n";
         break;
     }
@@ -80,17 +86,20 @@ class trader
         $accounts = $this->client->getAccounts();
         foreach($accounts as $account)
         {
+            echo "[W] Found wallet:\t '".$account->getName()."'\n";
             if($account->getName()==CRYPTO.' Wallet')
             {
                 $this->account = $account;
-                echo "[i] Found '".CRYPTO." Wallet' :)\n";
+                echo " [i] Will use '".CRYPTO." Wallet' as main account :)\n";
             }
         }
         if(!$this->account)
         {
             $this->account = $this->client->getPrimaryAccount();
-            echo "[i] Didn't find your '".CRYPTO." Wallet' Account.. falling back to default\n";
+            echo "[W] Didn't find your '".CRYPTO." Wallet' Account.. falling back to default\n";
         }
+
+        
 
         $this->transactions = array();
         $this->traderID = substr(md5(time().microtime()."hello".rand(1,19999)),-3);
@@ -120,23 +129,27 @@ class trader
             if($pm->getName() == CURRENCY.' Wallet')
             {
                 $this->walletID = $pm->getId();
-                echo "[i] Found ".CURRENCY." Wallet ID: $this->walletID\n";
+                echo "[i] Will use ".$pm->getName()." for payments\n";
                 break;
             }
         }
         if(!$this->walletID)
             exit("[ERR] Could not find your ".CURRENCY." Wallet. Do you have one on Coinbase?\n");
 
+        echo "\n";
+
         $this->updatePrices();
     }
 
     function loadTransactions()
     {
+        //clearing transactions array so we don't have any legacy data
+        $this->transactions = array();
         if(defined('REDIS_SERVER') && REDIS_SERVER != '')
         {
             if(file_exists(ROOT.DS.'transactions'.(CRYPTO!='BTC'?'-'.CRYPTO:'').'.json')) //migrate to redis
             {
-                if(DEV===true) echo "[C] Found transactions".(CRYPTO!='BTC'?'-'.CRYPTO:'').".json and Redis is configured. Converting json to Redis.. ";
+                 echo "[C] Found transactions".(CRYPTO!='BTC'?'-'.CRYPTO:'').".json and Redis is configured. Converting json to Redis.. ";
                 $transactions = json_decode(file_get_contents(ROOT.DS.'transactions'.(CRYPTO!='BTC'?'-'.CRYPTO:'').'.json'), true);
                 foreach($transactions as $key=>$transaction)
                 {
@@ -146,10 +159,10 @@ class trader
                     $this->redis->set('phptrader'.(CRYPTO!='BTC'?'-'.CRYPTO:'').':'.$key.':sellat',$transaction['sellat']);
                 }
                 unlink(ROOT.DS.'transactions'.(CRYPTO!='BTC'?'-'.CRYPTO:'').'.json');
-                if(DEV===true) echo "done\n";
+                 echo "done\n";
             }
 
-            if(DEV===true) echo "[i] Loading data from Redis.. ";
+             echo "[i] Loading data from Redis.. ";
             $data = $this->redis->keys('phptrader'.(CRYPTO!='BTC'?'-'.CRYPTO:'').':*');
             if(is_array($data))
                 foreach($data as $d)
@@ -161,7 +174,7 @@ class trader
                     $this->transactions[$key][$var] = $val;
                 }
             
-            if(DEV===true) echo "done! Found ".count($this->transactions)." data points.\n";
+             echo "done! Found ".count($this->transactions)." data points.\n";
         }
         else if(file_exists(ROOT.DS.'transactions'.(CRYPTO!='BTC'?'-'.CRYPTO:'').'.json'))
             $this->transactions = json_decode(file_get_contents(ROOT.DS.'transactions'.(CRYPTO!='BTC'?'-'.CRYPTO:'').'.json'), true);
@@ -170,7 +183,7 @@ class trader
 
     function deleteTransaction($id)
     {
-        if(DEV===true) echo "[i] Deleting transaction ID $id\n";
+         echo "[i] Deleting transaction ID $id\n";
 
         if(defined('REDIS_SERVER') && REDIS_SERVER != '')
         {
@@ -215,7 +228,7 @@ class trader
 
         if(!$this->lastSellPrice) $this->lastSellPrice = $this->sellPrice;
 
-        if(DEV===true)
+        
         {
             echo "[i] Buy price: $this->buyPrice\n";
             echo "[i] Sell price: $this->sellPrice\n";
@@ -228,11 +241,21 @@ class trader
     function addBuyTransaction($eur,$buyat,$sellat)
     {
         $this->loadTransactions();
-        echo "[i] Buying $eur € when price is <= $buyat ".CURRENCY."\n";
+        echo "[i] Adding BUY order for $eur ".CURRENCY." in ".CRYPTO." when price is <= $buyat ".CURRENCY."\n";
         $id = @max(array_keys($this->transactions))+1;
         $this->transactions[$id] = array('eur'=>$eur,'buyprice'=>$buyat,'sellat'=>$sellat);
         $this->saveTransactions();
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Will buy *$eur ".CURRENCY."* when ".CRYPTO." price hits *$buyat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($this->sellPrice-$buyat).' ".CURRENCY."* to go',':raised_hands:');
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Added BUY order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$buyat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($this->sellPrice-$buyat).' '.CURRENCY.'* to go',':raised_hands:');
+    }
+
+    function addSellTransaction($eur,$sellat)
+    {
+        $this->loadTransactions();
+        echo "[i] Adding SELL order for $eur ".CURRENCY." in ".CRYPTO." when price is >= $buyat ".CURRENCY."\n";
+        $id = @max(array_keys($this->transactions))+1;
+        $this->transactions[$id] = array('eur'=>$eur,'buyprice'=>$buyat,'sellat'=>$sellat);
+        $this->saveTransactions();
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Added SELL order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$sellat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($sellat-$this->sellPrice).' '.CURRENCY.'* to go',':raised_hands:');
     }
 
     function buyBTC($amount,$sellat,$btc=false)
@@ -254,7 +277,7 @@ class trader
         $id = @max(array_keys($this->transactions))+1;
         $this->transactions[$id] = array('btc'=>$btc,'eur'=>$eur,'buyprice'=>$this->buyPrice,'sellat'=>$sellat);
 
-        if(DEV===true)
+        
             echo "[B #$id] Buying $eur €\t=\t$btc ".CRYPTO."\n";
 
         if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Buying *$btc ".CRYPTO."* for *$eur ".CURRENCY."*",':moneybag:','Bot #'.$this->traderID);
@@ -268,7 +291,7 @@ class trader
     {
         $data = $this->transactions[$id];
         $this->deleteTransaction($id);
-        if(DEV===true)
+        
              echo "[S #$id] Removed transaction #$id from list\n";
         $this->sellBTC($data['btc'],true);
 
@@ -286,7 +309,7 @@ class trader
             'bitcoinAmount' => $btc 
             //'amount' => new Money($btc, CRYPTO)
         ]);
-        if(DEV===true)
+        
             echo "[S] Selling $eur € =\t$btc ".CRYPTO."\n";
         if(SIMULATE===false)
             $this->client->createAccountSell($this->account, $sell);            
@@ -294,23 +317,20 @@ class trader
     }
 
     function watchdog()
-    {
-        if(count($this->transactions)<=0)
-        {
-            echo "[ERR] No transactions to watch\n";
-            return;
-        }
-            
+    {            
         while(1)
         {
-            $this->updatePrices();
+            
+            $this->loadTransactions(); //update transactions since the data could have changed by now
+
+            echo "[i] Currently watching ".count($this->transactions)." transactions\n";
+
+            //only update prices if we have active transactions to watch
+            if(count($this->transactions)>0)
+                $this->updatePrices();
 
             if($this->lastSellPrice!=$this->sellPrice && round(abs($this->sellPrice-$this->lastSellPrice),2) > 0)
-            {
                 echo "[".CRYPTO."] Price went ".($this->sellPrice>$this->lastSellPrice?'up':'down')." by ".round($this->sellPrice-$this->lastSellPrice,2)." ".CURRENCY."\n";
-                //if(ROCKETCHAT_REPORTING===true)
-                //    sendToRocketchat("Sell price changed by *".round(($this->sellPrice-$this->lastSellPrice),2)." ".CURRENCY."* Was: $this->lastSellPrice, is now: $this->sellPrice",':information_source:');
-            }
                 
 
             foreach($this->transactions as $id=>$td)
@@ -323,20 +343,35 @@ class trader
                 
                 $diff = round(($this->sellPrice-$buyprice)*$btc,2);
 
-                //if this is a future transaction
-                if(!$btc)
+                    //is this a SELL order?
+                if(!$buyprice) 
+                {
+                    if($this->sellPrice >= $td['sellat']) //time to sell?
+                    {
+                        $btc = (1/$this->sellPrice) * $eur;
+                        $this->deleteTransaction($id);
+                        $this->sellBTC($btc,true);
+                        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$btc." ".CRYPTO."* for *".$eur." ".CURRENCY."*. Forefilling and deleting this sell order.",':money_with_wings:','Bot #'.$this->traderID);
+                    }
+                    else
+                        echo " [#$id] Watching SELL order for \t$eur ".CURRENCY.". Will sell when ".CRYPTO." price reaches ".$td['sellat']." ".CRYPTO.".\n";
+                        
+                }
+                    //is this a BUY order?
+                else if(!$btc)
                 {
                     if($this->buyPrice <= $buyprice) //time to buy?
                     {
-                        deleteTransaction($id);
+                        $this->deleteTransaction($id);
                         $this->buyBTC($eur, ($sellat-$eur) );
                     }
+                    else
+                        echo " [#$id] Watching BUY order for \t$eur ".CURRENCY.". Will buy when ".CRYPTO." price reaches $buyat.\n";
                         
                 }
                 else
                 {
-                    $untilsell = round(($this->sellPrice-$sellat)*$btc,2);
-                    $message = " [#$id] Holding \t$eur ".CURRENCY." at buy. Now worth:\t ".round($newprice,2)." ".CURRENCY.". Change: ".($diff)." ".CURRENCY.". Will sell at \t$sellat ".CURRENCY." (+$untilsell) ".CURRENCY."\n";
+                    $message = " [#$id] Holding \t$eur ".CURRENCY." at buy. Now worth:\t ".round($newprice,2)." ".CURRENCY.". Change: ".($diff)." ".CURRENCY.". Will sell at \t$sellat ".CURRENCY."\n";
                     echo $message;
 
                     if( ($this->sellPrice*$btc) >= $sellat )

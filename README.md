@@ -4,7 +4,7 @@
 
 ## Features
 - Uses the Coinbase API
-- Works with USD or EUR Wallets
+- Works with USD or EUR/USD Wallets
 - Works with Bitcoin or Ethereum
 - Automatically buys when your desired BTC/ETH price is reached
 - Automatically sells when your desired earnings are reached
@@ -12,7 +12,7 @@
 
 ## Requirements
 - A [Coinbase](https://www.coinbase.com) account
-- Some money on your EUR/USD Wallet on Coinbase
+- Some money on your EUR/USD/USD Wallet on Coinbase
 - Raspberry Pi or some Linux box
 - php5 or up
 - [composer](https://getcomposer.org/)
@@ -33,17 +33,20 @@
 This consists of two parts
 
 ### Part 1: Setup the bot
-Using the following commands, the bot will create a ```transacitons.json``` file where the amount in EUR, BTC/ETH, start price and sell price will be logged.
+Using the following commands, the bot will create a ```transacitons.json``` file where the amount in EUR/USD, BTC/ETH, start price and sell price will be logged.
 
-- php trader.php buy [amount in EUR] [sell when price increases by EUR]
-- php trader.php sell [amount in EUR]
-- php trader.php order [amount in EUR] [sell when price increases by EUR] [buy at btc/ETH price]
+- php trader.php buy [amount in EUR/USD] [sell when price increases by EUR/USD]
+- php trader.php sell [amount in EUR/USD] [sell when BTC/ETH price is reached]
+- php trader.php order [amount in EUR/USD] [sell when price increases by EUR/USD] [buy at BTC/ETH price]
 
 ***Examples:***
-- Buy 10 EUR in BTC/ETH and sell when it will be worth 12 EUR:
+- Buy 10 EUR/USD in BTC/ETH and sell when it will be worth 12 EUR/USD:
 ```php trader.php buy 10 2```
 
-- Add buy order for 15 EUR when 1 BTC/ETH is worth 1000 EUR and sell when the 15 EUR are worth 17 EUR:
+- Add sell order. Sell 100 EUR/USD when BTC/ETH price reaches 2000:
+```php trader.php sell 100 2000```
+
+- Add buy order for 15 EUR/USD when 1 BTC/ETH is worth 1000 EUR/USD and sell when the 15 EUR/USD are worth 17 EUR/USD:
 ```php trader.php order 15 2 1000```
 
 ### Part 2: Start the watchdog

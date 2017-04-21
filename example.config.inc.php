@@ -9,9 +9,9 @@ define('CURRENCY','EUR');
 // BTC or ETH only the moment
 define('CRYPTO','BTC');
 
-// Script settings
-define('DEV',true); //enables the program output
-define('SIMULATE',false); //if false, transactions are really paid, else it's just a simulation
+// Simulate or really commit buy/sells?
+//if false, transactions are really paid, with true it's just a simulation
+define('SIMULATE',false); 
 
 //how long between price checks in the watchdog?
 define('SLEEPTIME',10);
