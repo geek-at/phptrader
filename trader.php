@@ -366,7 +366,7 @@ class trader
                         $this->buyBTC($eur, ($sellat-$eur) );
                     }
                     else
-                        echo " [#$id] Watching BUY order for \t$eur ".CURRENCY.". Will buy when ".CRYPTO." price reaches $buyat.\n";
+                        echo " [#$id] Watching BUY order for \t$eur ".CURRENCY.". Will buy when ".CRYPTO." price reaches $buyprice.\n";
                         
                 }
                 else
