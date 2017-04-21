@@ -102,7 +102,7 @@ class trader
         
 
         $this->transactions = array();
-        $this->traderID = substr(md5(time().microtime()."hello".rand(1,19999)),-3);
+        $this->traderID = CURRENCY.' - '.CRYPTO;//substr(md5(time().microtime()."hello".rand(1,19999)),-3);
 
         //setup Redis connection if user has configured it
         if(defined('REDIS_SERVER') && REDIS_SERVER != '')
@@ -280,7 +280,7 @@ class trader
         
             echo "[B #$id] Buying $eur €\t=\t$btc ".CRYPTO."\n";
 
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Buying *$btc ".CRYPTO."* for *$eur ".CURRENCY."*",':moneybag:','Bot #'.$this->traderID);
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Buying *$btc ".CRYPTO."* for *$eur ".CURRENCY."*",':moneybag:');
 
         $this->saveTransactions();
 
@@ -297,7 +297,7 @@ class trader
 
         $profit = round(($data['btc']*$this->sellPrice)-($data['btc']*$data['buyprice']),2);
 
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$data['btc']." ".CRYPTO."* for *".$data['eur']." ".CURRENCY."*. Profit: *$profit ".CURRENCY."*",':money_with_wings:','Bot #'.$this->traderID);
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$data['btc']." ".CRYPTO."* for *".$data['eur']." ".CURRENCY."*. Profit: *$profit ".CURRENCY."*",':money_with_wings:');
     }
 
     function sellBTC($amount,$btc=false)
@@ -317,7 +317,8 @@ class trader
     }
 
     function watchdog()
-    {            
+    {
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Starting watchdog",':wave:');
         while(1)
         {
             
@@ -351,7 +352,7 @@ class trader
                         $btc = (1/$this->sellPrice) * $eur;
                         $this->deleteTransaction($id);
                         $this->sellBTC($btc,true);
-                        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$btc." ".CRYPTO."* for *".$eur." ".CURRENCY."*. Forefilling and deleting this sell order.",':money_with_wings:','Bot #'.$this->traderID);
+                        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$btc." ".CRYPTO."* for *".$eur." ".CURRENCY."*. Forefilling and deleting this sell order.",':money_with_wings:');
                     }
                     else
                         echo " [#$id] Watching SELL order for \t$eur ".CURRENCY.". Will sell when ".CRYPTO." price reaches ".$td['sellat']." ".CRYPTO.".\n";
@@ -393,8 +394,9 @@ class trader
 
 
 //rocketchat
-function sendToRocketchat($message,$icon=':ghost:',$username='Traderbot')
+function sendToRocketchat($message,$icon=':ghost:')
 {
+    $username = CURRENCY.' - '.CRYPTO.' trader'.(SIMULATE===true?' (simulation)':'');
   $data = array("icon_emoji"=>$icon,
                 "username"=>$username,
 		        "text"=>$message);
