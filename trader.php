@@ -490,7 +490,7 @@ class trader
         $out = ob_get_contents();
         ob_end_clean();
 
-        sendToRocketchat($out,':information_source: ');
+        sendToRocketchat($out,':information_source:');
     }
 
 }
