@@ -1,6 +1,7 @@
 <?php 
 define('DS', DIRECTORY_SEPARATOR);
 define('ROOT', dirname(__FILE__));
+date_default_timezone_set((TIMEZONE?TIMEZONE:'Europe/London'));
 
 //check if this is really run by CLI, not a webserver
 if(php_sapi_name() !== 'cli')
@@ -46,8 +47,25 @@ $t = new trader();
             $t->addBuyTransaction($amount,$buyat,$sellat);
         break;
 
+        case 'list':
+            $t->listTransactions();
+        break;
+
+        case 'delete':
+            $id = $argv[2];
+            $t->deleteTransaction($id);
+        break;
+
         case 'watchdog':
             $t->watchdog();
+        break;
+
+        case 'check':
+            $t->mainCheck();
+        break;
+
+        case 'report':
+            $t->report();
         break;
 
         default:
@@ -55,6 +73,10 @@ $t = new trader();
             echo "php $myname buy <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY.">\n";
             echo "php $myname sell <amount in ".CURRENCY."> <sell when this ".CRYPTO." price is reached >\n";
             echo "php $myname order <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY."> <buy at ".CRYPTO." price>\n";
+            echo "php $myname watchdog\t\tStarts infinite loop and checks for buys/sells. This is the main run method\n";
+            echo "php $myname check\t\tThis will check all transactions as if it were run from the watchdog, but exits after one check so you can do it via cron\n";
+            echo "php $myname list\t\tList all transactions with IDs\n";
+            echo "php $myname delete <item id>\t\tDelete the transaction ID according to the list command\n";
             echo "\nExamples:\n---------------\n";
             echo "Buy 10 ".CURRENCY." in ".CRYPTO." and sell when it will be worth 12 ".CURRENCY.":\n  php $myname buy 10 2\n";
             echo "Sell 100 ".CURRENCY." of your ".CRYPTO." when 1 ".CRYPTO." is worth 2000 ".CURRENCY.":\n  php $myname sell 100 2000\n";
@@ -71,9 +93,10 @@ class trader
     
     private $client;
     private $account;
-    private $walletID;
+    private $wallet;
     private $transactions;
     private $traderID;
+    private $currencyWallet;
 
     private $redis;
 
@@ -86,11 +109,17 @@ class trader
         $accounts = $this->client->getAccounts();
         foreach($accounts as $account)
         {
-            echo "[W] Found wallet:\t '".$account->getName()."'\n";
-            if($account->getName()==CRYPTO.' Wallet')
+            //echo "[W] Found wallet:\t '".$account->getName()."'\n";
+            if($account->getCurrency()==CRYPTO)
             {
                 $this->account = $account;
-                echo " [i] Will use '".CRYPTO." Wallet' as main account :)\n";
+
+                echo "[i] Will use '".$account->getName()."' as crypto wallet :)\n";
+            }
+            else if($account->getCurrency()==CURRENCY)
+            {
+                $this->currencyWallet = $account;
+                echo "[i] Will use '".$account->getName()."' as currency wallet :)\n";
             }
         }
         if(!$this->account)
@@ -98,8 +127,6 @@ class trader
             $this->account = $this->client->getPrimaryAccount();
             echo "[W] Didn't find your '".CRYPTO." Wallet' Account.. falling back to default\n";
         }
-
-        
 
         $this->transactions = array();
         $this->traderID = CURRENCY.' - '.CRYPTO;//substr(md5(time().microtime()."hello".rand(1,19999)),-3);
@@ -128,17 +155,28 @@ class trader
         {
             if($pm->getName() == CURRENCY.' Wallet')
             {
-                $this->walletID = $pm->getId();
+                $this->wallet = $pm;
                 echo "[i] Will use ".$pm->getName()." for payments\n";
                 break;
             }
         }
-        if(!$this->walletID)
+        if(!$this->wallet)
             exit("[ERR] Could not find your ".CURRENCY." Wallet. Do you have one on Coinbase?\n");
 
         echo "\n";
 
+        //$this->checkBalanceOfAccount($this->account);
+
         $this->updatePrices();
+    }
+
+    function checkBalanceOfAccount($account)
+    {
+        $data = $account->getBalance();
+        $amount = $data->getAmount();
+        $currency = $data->getCurrency();
+
+        return $amount;
     }
 
     function loadTransactions()
@@ -251,9 +289,9 @@ class trader
     function addSellTransaction($eur,$sellat)
     {
         $this->loadTransactions();
-        echo "[i] Adding SELL order for $eur ".CURRENCY." in ".CRYPTO." when price is >= $buyat ".CURRENCY."\n";
+        echo "[i] Adding SELL order for $eur ".CURRENCY." in ".CRYPTO." when price is >= $sellat ".CURRENCY."\n";
         $id = @max(array_keys($this->transactions))+1;
-        $this->transactions[$id] = array('eur'=>$eur,'buyprice'=>$buyat,'sellat'=>$sellat);
+        $this->transactions[$id] = array('eur'=>$eur,'sellat'=>$sellat);
         $this->saveTransactions();
         if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Added SELL order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$sellat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($sellat-$this->sellPrice).' '.CURRENCY.'* to go',':raised_hands:');
     }
@@ -268,10 +306,17 @@ class trader
             $buy = new Buy([
                 'bitcoinAmount' => $btc,
                 //'amount' => new Money($btc, CRYPTO),
-                'paymentMethodId' => $this->walletID
+                'paymentMethodId' => $this->wallet->getId()
             ]);
 
-            $this->client->createAccountBuy($this->account, $buy);
+            //check if account has enough currency
+            if($this->checkBalanceOfAccount($this->currencyWallet)<$eur)
+            {
+                echo " [ERR] You don't have enough ".CURRENCY." in your '".$this->currencyWallet->getName()."'. Cancelling buy\n";
+                return;
+            }
+            else
+                $this->client->createAccountBuy($this->account, $buy);
         }
         $this->loadTransactions();
         $id = @max(array_keys($this->transactions))+1;
@@ -291,8 +336,7 @@ class trader
     {
         $data = $this->transactions[$id];
         $this->deleteTransaction($id);
-        
-             echo "[S #$id] Removed transaction #$id from list\n";
+        echo "[S #$id] Removed transaction #$id from list\n";
         $this->sellBTC($data['btc'],true);
 
         $profit = round(($data['btc']*$this->sellPrice)-($data['btc']*$data['buyprice']),2);
@@ -312,8 +356,54 @@ class trader
         
             echo "[S] Selling $eur € =\t$btc ".CRYPTO."\n";
         if(SIMULATE===false)
-            $this->client->createAccountSell($this->account, $sell);            
+        {
+            if($this->checkBalanceOfAccount($this->account)<$btc)
+            {
+                echo " [ERR] You don't have enough ".CRYPTO." in your '".$this->account->getName()."'. Cancelling sell\n";
+                return;
+            }
+            else
+                $this->client->createAccountSell($this->account, $sell);            
+        }
         
+    }
+
+    function listTransactions()
+    {
+        $this->loadTransactions(); //update transactions since the data could have changed by now
+
+        $btc = $td['btc'];
+        $eur = $td['eur'];
+        $buyprice = $td['buyprice'];
+        $sellat = $td['sellat']+$eur;
+        $newprice = $btc*$this->sellPrice;
+        $diff = round(($this->sellPrice-$buyprice)*$btc,2);
+
+        if(count($this->transactions)<1)
+            $message = "No transactions at the moment\n";
+        else
+            foreach($this->transactions as $id=>$td)
+            {
+                $message = "ID: $id\t";
+                //is this a SELL order?
+                if(!$buyprice) 
+                {
+                    $message.="SELL order for $eur when ".CRYPTO." will reach a price of ".$td['sellat']." ".CURRENCY."\n";
+                }
+                //is this a BUY order?
+                else if(!$btc)
+                {
+                    $message.="BUY order for $eur in ".CRYPTO." when 1 ".CRYPTO." will be worth $buyprice ".CURRENCY." and sell when it's worth $sellat ".CURRENCY."\n";
+                }
+                else
+                {
+                    $message.="Holding $btc ".CRYPTO." (".($buyprice*$btc)." ".CURRENCY." at buy), will sell when it's worth $sellat ".CURRENCY."\n";
+                }
+                echo $message;
+            }
+
+        
+
     }
 
     function watchdog()
@@ -321,8 +411,16 @@ class trader
         if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Starting watchdog",':wave:');
         while(1)
         {
-            
-            $this->loadTransactions(); //update transactions since the data could have changed by now
+            $this->mainCheck();
+
+            sleep((defined('SLEEPTIME')?SLEEPTIME:10));
+            echo "------\n";
+        }
+    }
+
+    function mainCheck()
+    {
+        $this->loadTransactions(); //update transactions since the data could have changed by now
 
             echo "[i] Currently watching ".count($this->transactions)." transactions\n";
 
@@ -383,11 +481,16 @@ class trader
                 }
 
             }
-            
+    }
 
-            sleep((defined('SLEEPTIME')?SLEEPTIME:10));
-            echo "------\n";
-        }
+    function report()
+    {
+        ob_start();
+        $this->mainCheck();
+        $out = ob_get_contents();
+        ob_end_clean();
+
+        sendToRocketchat($out,':information_source: ');
     }
 
 }

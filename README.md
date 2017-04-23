@@ -29,27 +29,18 @@
 3. re-run ```composer install``` in the root directory to install new libraries
 
 ## Usage
+| Command  | Parameters                                     | What does it do                                                                                             | Example                                                                                              |
+|----------|------------------------------------------------|-------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| buy      | [amount in EUR/USD] [earnings]                 | Buys the amount in EUR/USD and sells when the earnings are reached                                          | buy 100 2 (Buy 100 EUR/USD and sell when the 100 are worth 2 more (102 EUR/USD))                     |
+| sell     | [amount in EUR/USD] [crypto price]             | Adds a high sell order. Will sell amount when the crypto price is reached                                   | sell 300 3000 (Sell 300 EUR/USD when 1 coin is worth 3000 EUR/USD)                                   |
+| order    | [amount in EUR/USD] [earnings] [BTC/ETH price] | Adds a low buy order. Will buy amount when BTC/ETH price is reached and will sell when earnings are reached | order 500 20 1000 (Buy 500 EUR/USD when 1 coin is worth 1000 EUR/USD and sell when 500 are worth 520 |
+| watchdog | -none-                                         | Starts infinite loop where prices are checked and orders are bought/sold                                    |                                                                                                      |
+| list     | -none-                                         | Lists all open transactions with IDs                                                                        |                                                                                                      |
+| delete   | transaction ID                                 | Allows you to delete transactions                                                                           |                                                                                                      |
+| check    | -none-                                         | Checks prices and orders. Does what "watchdog" does but only once                                           |                                                                                                      |
+| report   | -none-                                         | Reports current status of all transactions to chat webhook                                                  |                                                                                                      |
 
-This consists of two parts
-
-### Part 1: Setup the bot
-Using the following commands, the bot will create a ```transacitons.json``` file where the amount in EUR/USD, BTC/ETH, start price and sell price will be logged.
-
-- php trader.php buy [amount in EUR/USD] [sell when price increases by EUR/USD]
-- php trader.php sell [amount in EUR/USD] [sell when BTC/ETH price is reached]
-- php trader.php order [amount in EUR/USD] [sell when price increases by EUR/USD] [buy at BTC/ETH price]
-
-***Examples:***
-- Buy 10 EUR/USD in BTC/ETH and sell when it will be worth 12 EUR/USD:
-```php trader.php buy 10 2```
-
-- Add sell order. Sell 100 EUR/USD when BTC/ETH price reaches 2000:
-```php trader.php sell 100 2000```
-
-- Add buy order for 15 EUR/USD when 1 BTC/ETH is worth 1000 EUR/USD and sell when the 15 EUR/USD are worth 17 EUR/USD:
-```php trader.php order 15 2 1000```
-
-### Part 2: Start the watchdog
+### Start the watchdog
 The heart of the bot is an infinite loop that checks periodically for price changes.
 You can start it yourself or use the ```start.sh``` script which will put the process in background and log to ```/var/log/phptrader.log```
 

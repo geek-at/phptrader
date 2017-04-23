@@ -13,6 +13,10 @@ define('CRYPTO','BTC');
 //if false, transactions are really paid, with true it's just a simulation
 define('SIMULATE',false); 
 
+// The local timezone of this machine
+// must be a string according to http://php.net/manual/en/timezones.php
+define('TIMEZONE','Europe/London'); 
+
 //how long between price checks in the watchdog?
 define('SLEEPTIME',10);
 
