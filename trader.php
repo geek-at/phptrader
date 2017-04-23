@@ -372,23 +372,23 @@ class trader
     {
         $this->loadTransactions(); //update transactions since the data could have changed by now
 
-        $btc = $td['btc'];
-        $eur = $td['eur'];
-        $buyprice = $td['buyprice'];
-        $sellat = $td['sellat']+$eur;
-        $newprice = $btc*$this->sellPrice;
-        $diff = round(($this->sellPrice-$buyprice)*$btc,2);
-
         if(count($this->transactions)<1)
             $message = "No transactions at the moment\n";
         else
             foreach($this->transactions as $id=>$td)
             {
+                $btc = $td['btc'];
+                $eur = $td['eur'];
+                $buyprice = $td['buyprice'];
+                $sellat = $td['sellat']+$eur;
+                $newprice = $btc*$this->sellPrice;
+                $diff = round(($this->sellPrice-$buyprice)*$btc,2);
+
                 $message = "ID: $id\t";
                 //is this a SELL order?
                 if(!$buyprice) 
                 {
-                    $message.="SELL order for $eur when ".CRYPTO." will reach a price of ".$td['sellat']." ".CURRENCY."\n";
+                    $message.="SELL order for $eur ".CURRENCY." when ".CRYPTO." will reach a price of ".$td['sellat']." ".CURRENCY."\n";
                 }
                 //is this a BUY order?
                 else if(!$btc)
