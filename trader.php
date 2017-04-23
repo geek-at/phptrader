@@ -268,10 +268,10 @@ class trader
 
         
         {
-            echo "[i] Buy price: $this->buyPrice\n";
-            echo "[i] Sell price: $this->sellPrice\n";
-            echo "[i] Spot price: $this->spotPrice\n";
-            echo "[i] Difference buy/sell: ".round(abs($this->buyPrice-$this->sellPrice),2)."\n\n";
+            echo "[i] Buy price: $this->buyPrice ".CURRENCY."\n";
+            echo "[i] Sell price: $this->sellPrice ".CURRENCY."\n";
+            echo "[i] Spot price: $this->spotPrice ".CURRENCY."\n";
+            echo "[i] Difference buy/sell: ".round(abs($this->buyPrice-$this->sellPrice),2)." ".CURRENCY."\n\n";
         }
         
     }
