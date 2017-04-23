@@ -264,15 +264,13 @@ class trader
         $this->sellPrice = floatval($this->client->getSellPrice(CRYPTO.'-'.CURRENCY)->getAmount());
         $this->spotPrice = floatval($this->client->getSpotPrice(CRYPTO.'-'.CURRENCY)->getAmount());
 
-        if(!$this->lastSellPrice) $this->lastSellPrice = $this->sellPrice;
+        if(!$this->lastSellPrice)
+            $this->lastSellPrice = $this->sellPrice;
 
-        
-        {
-            echo "[i] Buy price: $this->buyPrice ".CURRENCY."\n";
-            echo "[i] Sell price: $this->sellPrice ".CURRENCY."\n";
-            echo "[i] Spot price: $this->spotPrice ".CURRENCY."\n";
-            echo "[i] Difference buy/sell: ".round(abs($this->buyPrice-$this->sellPrice),2)." ".CURRENCY."\n\n";
-        }
+        echo "[i] Buy price: $this->buyPrice ".CURRENCY."\n";
+        echo "[i] Sell price: $this->sellPrice ".CURRENCY."\n";
+        echo "[i] Spot price: $this->spotPrice ".CURRENCY."\n";
+        echo "[i] Difference buy/sell: ".round(abs($this->buyPrice-$this->sellPrice),2)." ".CURRENCY."\n\n";
         
     }
 
