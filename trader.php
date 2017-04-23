@@ -1,7 +1,6 @@
 <?php 
 define('DS', DIRECTORY_SEPARATOR);
 define('ROOT', dirname(__FILE__));
-date_default_timezone_set((TIMEZONE?TIMEZONE:'Europe/London'));
 
 //check if this is really run by CLI, not a webserver
 if(php_sapi_name() !== 'cli')
@@ -14,6 +13,7 @@ include_once(ROOT.DS.'config.inc.php');
 //catch legacy configurations
 if(!defined('CRYPTO'))
     define('CRYPTO','BTC');
+date_default_timezone_set((TIMEZONE?TIMEZONE:'Europe/London'));
 include_once(ROOT.DS.'vendor/autoload.php');
 use Coinbase\Wallet\Client;
 use Coinbase\Wallet\Configuration;
