@@ -20,69 +20,72 @@ use Coinbase\Wallet\Configuration;
 use Coinbase\Wallet\Resource\Sell;
 use Coinbase\Wallet\Resource\Buy;
 use Coinbase\Wallet\Value\Money;
-$t = new trader();
 
-    $myname = $argv[0];
-    switch($argv[1])
-    {
-        case 'buy':
-            $amount = $argv[2];
-            $sellat = $argv[3];
-            $t->buyBTC($amount,$sellat);
-        break;
+$t = new trader(($argv[1]==='debug'?true:false));
 
-        
-        case 'sell':
-            $amount = $argv[2];
-            $cyproprice = $argv[3];
-            $t->addSellTransaction($amount,$cyproprice);
-        break;
-        
-        
-        case 'order':
-            $amount = $argv[2];
-            $sellat = $argv[3];
-            $buyat = $argv[4];
+$myname = $argv[0];
+    
+switch($argv[1])
+{    
+    case 'buy':
+        $amount = $argv[2];
+        $sellat = $argv[3];
+        $t->buyBTC($amount,$sellat);
+    break;
+    
+    case 'sell':
+        $amount = $argv[2];
+        $cyproprice = $argv[3];
+        $t->addSellTransaction($amount,$cyproprice);
+    break;
+    
+    case 'order':
+        $amount = $argv[2];
+        $sellat = $argv[3];
+        $buyat = $argv[4];
+        $t->addBuyTransaction($amount,$buyat,$sellat);
+    break;
 
-            $t->addBuyTransaction($amount,$buyat,$sellat);
-        break;
+    case 'list':
+        $t->listTransactions();
+    break;
 
-        case 'list':
-            $t->listTransactions();
-        break;
+    case 'delete':
+        $id = $argv[2];
+        $t->deleteTransaction($id);
+    break;
 
-        case 'delete':
-            $id = $argv[2];
-            $t->deleteTransaction($id);
-        break;
+    case 'watchdog':
+        $t->watchdog();
+    break;
 
-        case 'watchdog':
-            $t->watchdog();
-        break;
+    case 'check':
+        $t->mainCheck();
+    break;
 
-        case 'check':
-            $t->mainCheck();
-        break;
+    case 'report':
+        $t->report();
+    break;
 
-        case 'report':
-            $t->report();
-        break;
+    case 'debug':
+        $t->debug();
+    break;
 
-        default:
-            echo "Usage info\n---------------\n";
-            echo "php $myname buy <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY.">\n";
-            echo "php $myname sell <amount in ".CURRENCY."> <sell when this ".CRYPTO." price is reached >\n";
-            echo "php $myname order <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY."> <buy at ".CRYPTO." price>\n";
-            echo "php $myname watchdog\t\tStarts infinite loop and checks for buys/sells. This is the main run method\n";
-            echo "php $myname check\t\tThis will check all transactions as if it were run from the watchdog, but exits after one check so you can do it via cron\n";
-            echo "php $myname list\t\tList all transactions with IDs\n";
-            echo "php $myname delete <item id>\t\tDelete the transaction ID according to the list command\n";
-            echo "\nExamples:\n---------------\n";
-            echo "Buy 10 ".CURRENCY." in ".CRYPTO." and sell when it will be worth 12 ".CURRENCY.":\n  php $myname buy 10 2\n";
-            echo "Sell 100 ".CURRENCY." of your ".CRYPTO." when 1 ".CRYPTO." is worth 2000 ".CURRENCY.":\n  php $myname sell 100 2000\n";
-            echo "Add buy order for 15 ".CURRENCY." when 1 ".CRYPTO." is worth 1000 ".CURRENCY." and sell when the 15 ".CURRENCY." are worth 17 ".CURRENCY.":\n  php $myname order 15 2 1000\n";
-        break;
-    }
+    default:
+        echo "Usage info\n---------------\n";
+        echo "php $myname buy <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY.">\n";
+        echo "php $myname sell <amount in ".CURRENCY."> <sell when this ".CRYPTO." price is reached >\n";
+        echo "php $myname order <amount in ".CURRENCY."> <sell when price increases by ".CURRENCY."> <buy at ".CRYPTO." price>\n";
+        echo "php $myname watchdog\t\tStarts infinite loop and checks for buys/sells. This is the main run method\n";
+        echo "php $myname check\t\tThis will check all transactions as if it were run from the watchdog, but exits after one check so you can do it via cron\n";
+        echo "php $myname list\t\tList all transactions with IDs\n";
+        echo "php $myname delete <item id>\t\tDelete the transaction ID according to the list command\n";
+        echo "\nExamples:\n---------------\n";
+        echo "Buy 10 ".CURRENCY." in ".CRYPTO." and sell when it will be worth 12 ".CURRENCY.":\n  php $myname buy 10 2\n";
+        echo "Sell 100 ".CURRENCY." of your ".CRYPTO." when 1 ".CRYPTO." is worth 2000 ".CURRENCY.":\n  php $myname sell 100 2000\n";
+        echo "Add buy order for 15 ".CURRENCY." when 1 ".CRYPTO." is worth 1000 ".CURRENCY." and sell when the 15 ".CURRENCY." are worth 17 ".CURRENCY.":\n  php $myname order 15 2 1000\n";
+    break;
+}
 
 class trader
 {
@@ -101,10 +104,12 @@ class trader
     private $redis;
 
 
-    function __construct()
+    function __construct($noinit=false)
     {
+        
         $configuration = Configuration::apiKey(COINBASE_KEY, COINBASE_SECRET);
         $this->client = Client::create($configuration);
+        if($noinit===true) return;
 
         $accounts = $this->client->getAccounts();
         foreach($accounts as $account)
@@ -161,13 +166,38 @@ class trader
             }
         }
         if(!$this->wallet)
-            exit("[ERR] Could not find your ".CURRENCY." Wallet. Do you have one on Coinbase?\n");
+            exit("[ERR] Could not find your payment method '".CURRENCY." Wallet'. Are you sure ".CURRENCY." is a currency?\n");
 
         echo "\n";
 
         //$this->checkBalanceOfAccount($this->account);
 
         $this->updatePrices();
+    }
+
+    function debug()
+    {
+        echo "############ DEBUG START ############\n\n";
+        echo "[i] Listing accounts\n\n";
+        $accounts = $this->client->getAccounts();
+        foreach($accounts as $account)
+        {
+            echo "  [W] Wallet:\t '".$account->getName()."'\n";
+            echo "    [Wi] ID: ".$account->getId()."\n";
+            echo "    [Wi] currency: ".$account->getCurrency()."\n";
+            echo "    [Wi] Amount: ".$account->getBalance()->getAmount()."\n\n";
+        }
+
+        echo "[i] Listing Payment methods\n\n";
+        $paymentMethods = $this->client->getPaymentMethods();
+        foreach($paymentMethods as $pm)
+        {
+            echo "  [PM] Wallet:\t '".$pm->getName()."'\n";
+            echo "    [PMi] ID: ".$pm->getId()."\n";
+            echo "    [PMi] currency: ".$pm->getCurrency()."\n\n";
+        }
+
+        echo "\n############ DEBUG END ############\n";
     }
 
     function checkBalanceOfAccount($account)

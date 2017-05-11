@@ -38,7 +38,8 @@
 | list     | -none-                                         | Lists all open transactions with IDs                                                                        |                                                                                                      |
 | delete   | transaction ID                                 | Allows you to delete transactions                                                                           |                                                                                                      |
 | check    | -none-                                         | Checks prices and orders. Does what "watchdog" does but only once                                           |                                                                                                      |
-| report   | -none-                                         | Reports current status of all transactions to chat webhook                                                  |                                                                                                      |
+| report   | -none-                                         | Reports current status of all transactions to chat webhook                                                  |                                
+| debug   | -none-                                         | Lists all your payment methods and wallets                                                  |                                                                                                      |
 
 ### Start the watchdog
 The heart of the bot is an infinite loop that checks periodically for price changes.
