@@ -166,7 +166,7 @@ class trader
             }
         }
         if(!$this->wallet)
-            exit("[ERR] Could not find your payment method '".CURRENCY." Wallet'. Are you sure ".CURRENCY." is a currency?\n");
+            exit("[ERR] Could not find your payment method: '".CURRENCY." Wallet'. Are you sure ".CURRENCY." is a currency?\n");
 
         echo "\n";
 
