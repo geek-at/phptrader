@@ -332,8 +332,7 @@ class trader
         if(SIMULATE===false)
         {
             $buy = new Buy([
-                'bitcoinAmount' => $btc,
-                //'amount' => new Money($btc, CRYPTO),
+                'amount' => new Money($btc, CRYPTO),
                 'paymentMethodId' => $this->wallet->getId()
             ]);
 
