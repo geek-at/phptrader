@@ -2,3 +2,4 @@ vendor
 config.inc.php
 transactions.json
 transactions-ETH.json
+autotrader.txt

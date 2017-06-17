@@ -37,7 +37,7 @@ switch($argv[1])
     case 'autotrader':
     case 'auto':
         $stake = $argv[2];
-        $t->autotrade($stake,($argv[3]=='nobuy'?true:false));
+        $t->autotrade($stake,$argv[3]);
     break;
     
     case 'sell':
@@ -555,20 +555,33 @@ class trader
         sendToRocketchat($out,':information_source:');
     }
 
-    function autotrade($stake=10,$nobuy=false)
+    function autotrade($stake=10,$sellpercent=115)
     {
         if(!$stake || !is_numeric($stake) || $stake < 1) $stake = 10;
-        $boughtat = $this->buyPrice;
-        $coins = $stake/$boughtat;
-        if($nobuy===false)
+        if(!$sellpercent || !is_numeric($sellpercent) || $sellpercent < 1) $sellpercent = 115;
+        if(file_exists('autotrader.txt'))
+        {
+            $data = trim(file_get_contents('autotrader.txt'));
+            $a = explode(';',$data);
+            $boughtat = $a[0];
+            $coins = $a[1];
+            $stake = $a[2];
+            echo "[A] Loading existing autotrader with stake of $stake ".CURRENCY.". Holding ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
+        }
+        else
+        {
+            $boughtat = $this->buyPrice;
+            $coins = $stake/$boughtat;
             $this->buyCryptoInMoney($stake);
-        echo "[A] Starting autotrader with stake of $stake ".CURRENCY.".".($nobuy===true?' NOT':'')." Buying ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
+            file_put_contents('autotrader.txt',"$boughtat;$coins;$stake");
+            echo "[A] Starting autotrader with stake of $stake ".CURRENCY.".".($nobuy===true?' NOT':'')." Buying ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
+        }
 
         while(1)
         {
             $diff = ($this->sellPrice*$coins)-($boughtat*$coins);
             $percentdiff = round((($this->sellPrice*$coins)/($boughtat*$coins))*100,2);
-            if($percentdiff>=120)
+            if($percentdiff>=115)
             {
                 echo "\n  [!] Price is now $percentdiff % of buy price. Selling $stake ".CURRENCY."\n";
                 $this->sellBTC($stake);
@@ -577,10 +590,11 @@ class trader
                 $boughtat = $this->buyPrice;
                 $coins = $stake/$boughtat;
                 $this->buyCryptoInMoney($stake);
+                file_put_contents('autotrader.txt',"$boughtat;$coins;$stake");
                 echo "\n[A] Re-buying with stake of $stake ".CURRENCY.". Buying ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
             }
             else
-                echo "\r [".date("d.m H:i")."] Current percentage of buy price: $percentdiff%. Will sell at 120%";
+                echo "\r [".date("d.m H:i")."] Current percentage of buy price: $percentdiff%. Will sell at 115%          ";
 
             sleep(SLEEPTIME);
         }
