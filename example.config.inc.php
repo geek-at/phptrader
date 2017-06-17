@@ -5,6 +5,8 @@
 // EUR or USD or even ETH or BTC
 define('CURRENCY','EUR');
 
+define('PAYMENT_METHOD_NAME','EUR Wallet');
+
 // The crypto currency the bot is going to trade.
 // BTC or ETH only the moment
 define('CRYPTO','BTC');

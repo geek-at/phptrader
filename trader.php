@@ -155,10 +155,15 @@ class trader
 
         $paymentMethods = $this->client->getPaymentMethods();
 
+        // legacy support so users won't have to change their config
+        if (!defined('PAYMENT_METHOD_NAME')) {
+            define('PAYMENT_METHOD_NAME',CURRENCY.' Wallet');
+        }
+
         //find wallet ID
         foreach($paymentMethods as $pm)
         {
-            if($pm->getName() == CURRENCY.' Wallet')
+            if($pm->getName() == PAYMENT_METHOD_NAME)
             {
                 $this->wallet = $pm;
                 echo "[i] Will use ".$pm->getName()." for payments\n";
@@ -166,7 +171,7 @@ class trader
             }
         }
         if(!$this->wallet)
-            exit("[ERR] Could not find your payment method: '".CURRENCY." Wallet'. Are you sure ".CURRENCY." is a currency?\n");
+            exit("[ERR] Could not find your payment method: '".PAYMENT_METHOD_NAME."'.\n");
 
         echo "\n";
 
