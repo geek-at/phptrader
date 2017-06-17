@@ -576,6 +576,7 @@ class trader
             file_put_contents('autotrader.txt',"$boughtat;$coins;$stake");
             echo "[A] Starting autotrader with stake of $stake ".CURRENCY.".".($nobuy===true?' NOT':'')." Buying ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
         }
+        $targetprice = round(($stake/100)*$sellpercent);
 
         while(1)
         {
@@ -594,7 +595,7 @@ class trader
                 echo "\n[A] Re-buying with stake of $stake ".CURRENCY.". Buying ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
             }
             else
-                echo "\r [".date("d.m H:i")."] Current percentage of buy price: $percentdiff%. Will sell at 115%          ";
+                echo "\r [".date("d.m H:i")."] Current price: ".round($this->sellPrice*$coins)." ".CURRENCY.". $percentdiff% of target. Will sell at ".$sellpercent."% for $targetprice ".CURRENCY."         ";
 
             sleep(SLEEPTIME);
         }
