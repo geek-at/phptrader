@@ -32,6 +32,13 @@ switch($argv[1])
         $sellat = $argv[3];
         $t->buyBTC($amount,$sellat);
     break;
+
+    case 'autotrade':
+    case 'autotrader':
+    case 'auto':
+        $stake = $argv[2];
+        $t->autotrade($stake,($argv[3]=='nobuy'?true:false));
+    break;
     
     case 'sell':
         $amount = $argv[2];
@@ -324,6 +331,34 @@ class trader
         if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Added SELL order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$sellat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($sellat-$this->sellPrice).' '.CURRENCY.'* to go',':raised_hands:');
     }
 
+    /*
+    * Buys the configured crypto for real money
+    * $money is $ or €, not some other crypto
+    */
+    function buyCryptoInMoney($money)
+    {
+        if(SIMULATE===false)
+        {
+            echo " [B] Buying $money ".CURRENCY.' of '.CRYPTO."\n";
+            $buy = new Buy([
+                'amount' => new Money($money, CURRENCY),
+                'paymentMethodId' => $this->wallet->getId()
+            ]);
+
+            //check if account has enough currency
+            if($this->checkBalanceOfAccount($this->currencyWallet)<$money)
+            {
+                echo " [ERR] You don't have enough ".CURRENCY." in your '".$this->currencyWallet->getName()."'. Cancelling buy\n";
+                return;
+            }
+            else
+                $this->client->createAccountBuy($this->account, $buy);
+
+        }
+        else
+            echo " [S] Simulating buy of $money ".CURRENCY.' in '.CRYPTO."\n";
+    }
+
     function buyBTC($amount,$sellat,$btc=false)
     {
         $eur = ($btc===true?($this->buyPrice*$amount):$amount);
@@ -518,6 +553,37 @@ class trader
         ob_end_clean();
 
         sendToRocketchat($out,':information_source:');
+    }
+
+    function autotrade($stake=10,$nobuy=false)
+    {
+        if(!$stake || !is_numeric($stake) || $stake < 1) $stake = 10;
+        $boughtat = $this->buyPrice;
+        $coins = $stake/$boughtat;
+        if($nobuy===false)
+            $this->buyCryptoInMoney($stake);
+        echo "[A] Starting autotrader with stake of $stake ".CURRENCY.".".($nobuy===true?' NOT':'')." Buying ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
+
+        while(1)
+        {
+            $diff = ($this->sellPrice*$coins)-($boughtat*$coins);
+            $percentdiff = round((($this->sellPrice*$coins)/($boughtat*$coins))*100,2);
+            if($percentdiff>=120)
+            {
+                echo "\n  [!] Price is now $percentdiff % of buy price. Selling $stake ".CURRENCY."\n";
+                $this->sellBTC($stake);
+
+                //aaand here we go again
+                $boughtat = $this->buyPrice;
+                $coins = $stake/$boughtat;
+                $this->buyCryptoInMoney($stake);
+                echo "\n[A] Re-buying with stake of $stake ".CURRENCY.". Buying ".$coins.' '.CRYPTO." at $boughtat ".CURRENCY." per ".CRYPTO."\n";
+            }
+            else
+                echo "\r [".date("d.m H:i")."] Current percentage of buy price: $percentdiff%. Will sell at 120%";
+
+            sleep(SLEEPTIME);
+        }
     }
 
 }
