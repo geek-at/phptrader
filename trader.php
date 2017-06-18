@@ -294,7 +294,7 @@ class trader
             file_put_contents(ROOT.DS."transactions".(CRYPTO!='BTC'?'-'.CRYPTO:'').".json",json_encode($this->transactions));
     }
 
-    function updatePrices()
+    function updatePrices($silent=false)
     {
         $this->lastSellPrice = $this->sellPrice;
         $this->buyPrice =  floatval($this->client->getBuyPrice(CRYPTO.'-'.CURRENCY)->getAmount());
@@ -304,11 +304,13 @@ class trader
         if(!$this->lastSellPrice)
             $this->lastSellPrice = $this->sellPrice;
 
-        echo "[i] Buy price: $this->buyPrice ".CURRENCY."\n";
-        echo "[i] Sell price: $this->sellPrice ".CURRENCY."\n";
-        echo "[i] Spot price: $this->spotPrice ".CURRENCY."\n";
-        echo "[i] Difference buy/sell: ".round(abs($this->buyPrice-$this->sellPrice),2)." ".CURRENCY."\n\n";
-        
+        if($silent===false)
+        {
+            echo "[i] Buy price: $this->buyPrice ".CURRENCY."\n";
+            echo "[i] Sell price: $this->sellPrice ".CURRENCY."\n";
+            echo "[i] Spot price: $this->spotPrice ".CURRENCY."\n";
+            echo "[i] Difference buy/sell: ".round(abs($this->buyPrice-$this->sellPrice),2)." ".CURRENCY."\n\n";
+        }
     }
 
     function addBuyTransaction($eur,$buyat,$sellat)
@@ -598,6 +600,7 @@ class trader
                 echo "\r [".date("d.m H:i")."] Current price: ".round($this->sellPrice*$coins)." ".CURRENCY.". $percentdiff% of target. Will sell at ".$sellpercent."% for $targetprice ".CURRENCY."         ";
 
             sleep(SLEEPTIME);
+            $this->updatePrices(true);
         }
     }
 
