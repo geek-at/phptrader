@@ -54,7 +54,9 @@ Instead of the nohup start Script you can add the phpTrader to SystemD. For this
 
 After this please edit the phpTrader.service File and change the Lines "user / group / ExecStart" fitting to your Setup needs, when done reload the systemd and start:
 
-```systemctl daemon-reload
+```
+systemctl daemon-reload
 systemctl enable phpTrader
-systemctl start phpTrader```
+systemctl start phpTrader
+```
 
