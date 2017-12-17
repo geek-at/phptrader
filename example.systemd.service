@@ -1,0 +1,36 @@
+# name: phpTrader.service
+# 1. copy/rename this file into: '/lib/systemd/system/phpTrader.service'
+# 2. change user/group and ExecStart matching your setup
+# 3. then run: 'systemctl daemon-reload'
+# 4. Enable by 'systemctl enable phpTrader'
+# 5. start by 'systemctl start phpTrader'
+# status by 'systemctl status phpTrader'
+ 
+[Unit]
+Description=phpTrader Service
+After=local-fs.target network.target
+ 
+[Service]
+Type=simple 
+User=myphptraderuser
+Group=myphptradergroup
+SyslogIdentifier=phpTrader
+StandardOutput=syslog
+ExecStart=/usr/bin/php /opt/phptrader/trader.php watchdog 2>&1 
+ReadOnlyDirectories=/etc
+ReadOnlyDirectories=/usr
+ReadOnlyDirectories=/proc
+ReadOnlyDirectories=/sys
+ReadOnlyDirectories=/sbin
+ReadOnlyDirectories=/lib
+ReadOnlyDirectories=/lib32
+ReadOnlyDirectories=/lib64
+InaccessibleDirectories=/boot
+InaccessibleDirectories=/home
+Nice=10
+KillMode=process
+Restart=always
+RestartSec=10
+ 
+[Install]
+WantedBy=multi-user.target

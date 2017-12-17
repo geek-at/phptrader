@@ -23,8 +23,13 @@ define('TIMEZONE','Europe/London');
 define('SLEEPTIME',10);
 
 // chat system output (rocket.chat and Slack supported)
-define('ROCKETCHAT_REPORTING',true); //enables/disables rocketchat reporting
+define('ROCKETCHAT_REPORTING',false); //enables/disables rocketchat reporting
 define('ROCKETCHAT_WEBHOOK',''); // The URL of the webhook. Also works with a Slack webhook!
+
+// secure mobile notifications by pushover (https://pushover.net)
+define('PUSHOVER_REPORTING',false); //enables/disables rocketchat reporting
+define('PUSHOVER_TOKEN',''); // Pushover App token 
+define('PUSHOVER_USER',''); // Pushover User API Key
 
 // Coinbase
 define('COINBASE_KEY','');

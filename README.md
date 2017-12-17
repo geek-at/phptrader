@@ -16,7 +16,7 @@
 - Raspberry Pi or some Linux box
 - php5 or up
 - [composer](https://getcomposer.org/)
-- (Optional) A Rocket.Chat or Slack webhook which will inform you whenever BTC/ETH are sold or bought
+- (Optional) A Rocket.Chat, Slack or Pushover webhook which will inform you whenever BTC/ETH are sold or bought
 
 ## Install
 1. Download the repo by using ```git clone https://github.com/chrisiaut/phptrader.git``` or download as [ZIP file](https://github.com/chrisiaut/phptrader/archive/master.zip)
@@ -46,3 +46,17 @@ The heart of the bot is an infinite loop that checks periodically for price chan
 You can start it yourself or use the ```start.sh``` script which will put the process in background and log to ```/var/log/phptrader.log```
 
 ```./start.sh```
+
+### Using SystemD
+Instead of the nohup start Script you can add the phpTrader to SystemD. For this purpose just copy the example.systemd.service File.
+
+```cp example.systemd.service /lib/systemd/system/phpTrader.service```
+
+After this please edit the phpTrader.service File and change the Lines "user / group / ExecStart" fitting to your Setup needs, when done reload the systemd and start:
+
+```
+systemctl daemon-reload
+systemctl enable phpTrader
+systemctl start phpTrader
+```
+
