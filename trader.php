@@ -21,9 +21,13 @@ use Coinbase\Wallet\Resource\Sell;
 use Coinbase\Wallet\Resource\Buy;
 use Coinbase\Wallet\Value\Money;
 
+if(empty($argv[1])) $argv[1] = false;
 $t = new trader(($argv[1]==='debug'?true:false));
 
 $myname = $argv[0];
+
+
+
     
 switch($argv[1])
 {    
@@ -77,6 +81,11 @@ switch($argv[1])
     case 'debug':
         $t->debug();
     break;
+
+    case 'pushovertest':
+        var_dump(sendToPushover("test"));
+    break;
+    
 
     default:
         echo "Usage info\n---------------\n";
@@ -325,7 +334,7 @@ class trader
         $id = @max(array_keys($this->transactions))+1;
         $this->transactions[$id] = array('eur'=>$eur,'buyprice'=>$buyat,'sellat'=>$sellat);
         $this->saveTransactions();
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Added BUY order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$buyat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($this->sellPrice-$buyat).' '.CURRENCY.'* to go',':raised_hands:');
+        sendMessage("Added BUY order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$buyat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($this->sellPrice-$buyat).' '.CURRENCY.'* to go',':raised_hands:');
     }
 
     function addSellTransaction($eur,$sellat)
@@ -335,7 +344,7 @@ class trader
         $id = @max(array_keys($this->transactions))+1;
         $this->transactions[$id] = array('eur'=>$eur,'sellat'=>$sellat);
         $this->saveTransactions();
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Added SELL order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$sellat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($sellat-$this->sellPrice).' '.CURRENCY.'* to go',':raised_hands:');
+        sendMessage("Added SELL order for *$eur ".CURRENCY."* when ".CRYPTO." price hits *$sellat ".CURRENCY."*. Currently it's at: *$this->sellPrice ".CURRENCY."*. Only *".($sellat-$this->sellPrice).' '.CURRENCY.'* to go',':raised_hands:');
     }
 
     /*
@@ -394,8 +403,7 @@ class trader
         
             echo "[B #$id] Buying $eur €\t=\t$btc ".CRYPTO."\n";
 
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Buying *$btc ".CRYPTO."* for *$eur ".CURRENCY."*",':moneybag:');
-
+        sendMessage("Buying *$btc ".CRYPTO."* for *$eur ".CURRENCY."*",':moneybag:');
         $this->saveTransactions();
 
         return $id;
@@ -410,7 +418,7 @@ class trader
 
         $profit = round(($data['btc']*$this->sellPrice)-($data['btc']*$data['buyprice']),2);
 
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$data['btc']." ".CRYPTO."* for *".$data['eur']." ".CURRENCY."*. Profit: *$profit ".CURRENCY."*",':money_with_wings:');
+        sendMessage("Selling *".$data['btc']." ".CRYPTO."* for *".$data['eur']." ".CURRENCY."*. Profit: *$profit ".CURRENCY."*",':money_with_wings:');
     }
 
     function sellBTC($amount,$btc=false)
@@ -429,6 +437,7 @@ class trader
             if($this->checkBalanceOfAccount($this->account)<$btc)
             {
                 echo " [ERR] You don't have enough ".CRYPTO." in your '".$this->account->getName()."'. Cancelling sell\n";
+                sendMessage(" [ERR] You don't have enough ".CRYPTO." in your '".$this->account->getName()."'. Cancelling sell\n",":no_entry:");
                 return;
             }
             else
@@ -477,7 +486,7 @@ class trader
 
     function watchdog()
     {
-        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Starting watchdog",':wave:');
+        sendMessage("Starting watchdog",':wave:');
         while(1)
         {
             $this->mainCheck();
@@ -519,7 +528,7 @@ class trader
                         $btc = (1/$this->sellPrice) * $eur;
                         $this->deleteTransaction($id);
                         $this->sellBTC($btc,true);
-                        if(ROCKETCHAT_REPORTING===true) sendToRocketchat("Selling *".$btc." ".CRYPTO."* for *".$eur." ".CURRENCY."*. Forefilling and deleting this sell order.",':money_with_wings:');
+                        sendMessage("Selling *".$btc." ".CRYPTO."* for *".$eur." ".CURRENCY."*. Forefilling and deleting this sell order.",':money_with_wings:');
                     }
                     else
                         echo " [#$id] Watching SELL order for \t$eur ".CURRENCY.". Will sell when ".CRYPTO." price reaches ".$td['sellat']." ".CRYPTO.".\n";
@@ -559,7 +568,7 @@ class trader
         $out = ob_get_contents();
         ob_end_clean();
 
-        sendToRocketchat($out,':information_source:');
+        sendMessage($out,':information_source:');
     }
 
     function autotrade($stake=10,$sellpercent=115)
@@ -611,11 +620,20 @@ class trader
 
 }
 
+// a general message function to handle different Message protocols
+function sendMessage($message,$icon=':ghost:') 
+{   
+    if(!empty($message)) {
+        if(ROCKETCHAT_REPORTING===true) sendToRocketchat($message,$icon);
+        if(PUSHOVER_REPORTING===true)   sendToPushover($message);
+    }
+}
+
 
 //rocketchat
 function sendToRocketchat($message,$icon=':ghost:')
 {
-    $username = CURRENCY.' - '.CRYPTO.' trader'.(SIMULATE===true?' (simulation)':'');
+  $username = CURRENCY.' - '.CRYPTO.' trader'.(SIMULATE===true?' (simulation)':'');
   $data = array("icon_emoji"=>$icon,
                 "username"=>$username,
 		        "text"=>$message);
@@ -637,3 +655,31 @@ function makeRequest($url,$data,$headers=false,$post=true)
     if ($result === FALSE) { /* Handle error */ }
     return json_decode($result,true);
 }
+
+
+//pushover
+function sendToPushover($message)
+{
+    if( empty(PUSHOVER_TOKEN) || empty(PUSHOVER_USER) || empty($message) ) return false;
+
+    $username = CURRENCY.' - '.CRYPTO.' trader'.(SIMULATE===true?' (simulation)':'');
+    curl_setopt_array($ch = curl_init(), array(
+        CURLOPT_URL => "https://api.pushover.net/1/messages.json",
+        CURLOPT_POSTFIELDS => array(
+                                "token"=>PUSHOVER_TOKEN,
+                                "user"=>PUSHOVER_USER,
+                                "priority"=>-1,
+                                "title"=>$username,
+                                "message"=>$message),
+        CURLOPT_SAFE_UPLOAD => true,
+        CURLOPT_RETURNTRANSFER => true,
+    ));
+    $RET = curl_exec($ch);
+    curl_close($ch);
+    return $RET;
+}
+
+
+
+
+
