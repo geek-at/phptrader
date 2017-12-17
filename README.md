@@ -47,7 +47,7 @@ You can start it yourself or use the ```start.sh``` script which will put the pr
 
 ```./start.sh```
 
-## Using SystemD
+### Using SystemD
 Instead of the nohup start Script you can add the phpTrader to SystemD. For this purpose just copy the example.systemd.service File.
 
 ```cp example.systemd.service /lib/systemd/system/phpTrader.service```
