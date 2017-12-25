@@ -1,5 +1,10 @@
 # Automated Bitcoin and Ethereum trading bot
 
+# THIS BOT IS NOT MAINTAINED AND WILL BE REMOVED SOON
+
+# Use this alternative: [Hascheksolutions Cryptotrader](https://github.com/HaschekSolutions/cryptotrader)
+
+
 ## Tutorial on https://blog.haschek.at/post/feb62
 
 ## Features
